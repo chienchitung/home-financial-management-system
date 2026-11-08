@@ -77,32 +77,52 @@ export function BillList({ bills, busy, send, edit }: { bills: Bill[]; busy: boo
   </div>)}</>;
 }
 
-export function Checklist({ data, month, busy, send, openDraft, editBill }: {
+export function MonthBills({ data, month, busy, send, openDraft, editBill }: {
   data: Ledger; month: string; busy: boolean; send: SendAction; openDraft:(draft:Draft)=>void; editBill:(bill:Bill)=>void;
 }) {
-  const items = checklist(data,month);
-  const received = items.filter(item=>item.bill).length;
-  return <div className="checklist">
-    <h3 tabIndex={-1}>本期固定帳單 · 已收到 {received}／{items.length} 份</h3>
-    {!items.length && <p>{data.schedules?.length ? '本月沒有排定的固定帳單；仍可加入單次帳單。' : '先設定常收到的帳單，系統才能幫你檢查缺漏。'}</p>}
-    {items.map(item=><div className="record compact" key={item.id}><div><b>{item.title}</b><small>{item.bill?'已收到':item.draft?'待核對':'尚未收到'}</small></div>
-      <button disabled={busy} onClick={async()=>{
-        if(item.bill) editBill(item.bill);
-        else if(item.draft) openDraft(item.draft);
-        else {const result=await send('schedule_draft',{id:item.id,month},'已建立待核對帳單，請填入實際金額。');const draft=result?.drafts.find(d=>d.scheduleId===item.id&&d.month===month);if(draft)openDraft(draft);}
-      }}>{item.bill?'查看':item.draft?'核對':'加入帳單'}</button></div>)}
+  const { guard } = useFormSafety();
+  const notReceived = checklist(data,month).filter(item=>!item.bill&&!item.draft);
+  const drafts = data.drafts.filter(draft=>draft.source!=='bank'&&draft.month===month);
+  const bills = data.bills.filter(bill=>!bill.voidedOn&&bill.month===month)
+    .sort((a,b)=>Number(!!a.paidOn||!!a.coveredByCard)-Number(!!b.paidOn||!!b.coveredByCard)||a.due.localeCompare(b.due));
+  if (!notReceived.length && !drafts.length && !bills.length) return <p className="empty-state">
+    {data.schedules?.length ? '本月沒有排定的固定帳單；有其他帳單可按「新增帳單」。' : '本月還沒有帳單。按「新增帳單」開始，或先設定固定帳單，系統會提醒缺漏。'}
+  </p>;
+  return <div className="bill-rows">
+    {notReceived.map(item=><div className="record" key={'schedule-'+item.id}>
+      <div><b>{item.title}</b><small>固定帳單 · 每期 {item.dueDay} 日</small></div>
+      <span className="badge waiting">尚未收到</span>
+      <div className="record-actions"><button disabled={busy} onClick={async()=>{
+        const result=await send('schedule_draft',{id:item.id,month},'已建立待核對帳單，請填入實際金額。');
+        const draft=result?.drafts.find(d=>d.scheduleId===item.id&&d.month===month);if(draft)openDraft(draft);
+      }}>加入帳單</button></div>
+    </div>)}
+    {drafts.map(draft=><DraftRow key={draft.id} draft={draft} busy={busy} open={()=>openDraft(draft)} remove={()=>guard(async()=>{
+      if(window.confirm('確定刪除這份草稿？刪除後需重新新增。'))await send('delete_draft',{id:draft.id},'已刪除草稿。');
+    })}/>)}
+    <BillList bills={bills} busy={busy} send={send} edit={editBill}/>
   </div>;
 }
 
-export function ScheduleSettings({ data, month, busy, send, next }: { data: Ledger; month: string; busy: boolean; send: SendAction; next: () => void }) {
+export function DraftRow({ draft, busy, open, remove, showMonth }: { draft: Draft; busy: boolean; open: ()=>void; remove: ()=>void; showMonth?: boolean }) {
+  const bank = draft.source==='bank';
+  return <div className="record">
+    <div><b>{draft.title || '未命名帳單'}</b><small>{[showMonth?draft.month:'', bank?'存款對帳單，僅供查閱':draft.due?'期限 '+draft.due:''].filter(Boolean).join(' · ')}</small></div>
+    {!bank&&<span className="badge pending">待核對</span>}
+    <div className="record-actions"><button disabled={busy} onClick={open}>{bank?'查看':'核對'}</button>
+      <button className="danger-text" disabled={busy} onClick={remove}>刪除草稿</button></div>
+  </div>;
+}
+
+export function ScheduleSettings({ data, month, busy, send, next, close }: { data: Ledger; month: string; busy: boolean; send: SendAction; next: () => void; close: () => void }) {
   const [editing,setEditing]=useState<Schedule>();
   const [saved,setSaved]=useState(false);
   const { guard } = useFormSafety();
-  const settings = useRef<HTMLDetailsElement>(null);
+  const settings = useRef<HTMLElement>(null);
   const [formVersion,setFormVersion]=useState(0);
-  return <details ref={settings} id="fixed-settings" className="panel" open>
-    <summary tabIndex={-1}>設定固定帳單（{data.schedules?.length ?? 0} 項）</summary>
-    <p>設定週期只用來檢查缺漏，不會自行產生支出。每兩月／每年從起始月份計算；31 日遇短月取月底。</p>
+  return <section ref={settings} id="fixed-settings" className="panel" aria-label="固定帳單設定">
+    <div className="section-title"><h2 tabIndex={-1}>固定帳單設定（{data.schedules?.length ?? 0} 項）</h2><button disabled={busy} onClick={()=>guard(close,settings.current?.querySelector('form'))}>關閉設定</button></div>
+    <p>只用來提醒每月缺哪些帳單，不會自行產生支出。</p>
     {(data.schedules??[]).map(item=><div className="record compact" key={item.id}><div><b>{item.title}</b><small>{item.interval===1?'每月':item.interval===2?'每兩月':'每年'} · {item.startMonth} 起{item.endMonth?'，至 '+item.endMonth:''} · 每期 {item.dueDay} 日</small></div><button disabled={busy} onClick={()=>guard(()=>{setEditing(item);setSaved(false);},settings.current?.querySelector("form"))}>修改週期</button></div>)}
     <TrackedForm className="settings-form" key={editing?.id??formVersion} onSave={async form =>
       !!await send('schedule',{id:editing?.id,title:form.get('title'),source:form.get('source'),startMonth:form.get('startMonth'),endMonth:form.get('endMonth'),interval:Number(form.get('interval')),dueDay:Number(form.get('dueDay')),autoDebit:form.get('autoDebit')==='on',coveredByCard:form.get('coveredByCard')==='on'},'已儲存固定清單。')}
@@ -119,5 +139,5 @@ export function ScheduleSettings({ data, month, busy, send, next }: { data: Ledg
       <div className="inline"><button className="primary" disabled={busy}>{editing?'儲存週期':'加入固定清單'}</button>{editing&&<button type="button" onClick={()=>guard(()=>setEditing(undefined),settings.current?.querySelector("form"))}>取消修改</button>}</div>
     </TrackedForm>
     {saved && <div className="saved-next" role="status"><span>已儲存固定清單。下一步填寫本期金額。</span><button onClick={next}>前往加入本月帳單</button></div>}
-  </details>;
+  </section>;
 }

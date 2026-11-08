@@ -9,6 +9,7 @@ test('monthly checklist, editing, payment reversal and recoverable voiding', asy
   const initial=await (await request.get('/api/demo')).json();const month=initial.month;
   await page.goto('/');await expect(page.getByRole('region',{name:'每月收支'})).toContainText('待補資料');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:/^固定帳單設定/}).click();
   const settings=page.locator('form.settings-form');
   await settings.getByLabel('名稱',{exact:true}).fill('電信測試');
   await settings.getByLabel('自動扣款',{exact:true}).check();
@@ -18,7 +19,7 @@ test('monthly checklist, editing, payment reversal and recoverable voiding', asy
   const editor=page.getByRole('region',{name:'核對草稿'});
   await editor.getByLabel('應繳金額',{exact:true}).fill('1299');
   await editor.getByRole('button',{name:'儲存到帳本'}).click();
-  await expect(page.getByRole('heading',{name:'本期固定帳單 · 已收到 1／1 份'})).toBeVisible();
+  await expect(page.locator('#month-checklist')).toContainText('固定帳單已收到 1／1 份');
   await page.getByRole('button',{name:'本月帳單都已加入'}).click();
   await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
   await page.getByLabel('本月新投入',{exact:true}).fill('10000');
@@ -68,6 +69,7 @@ test('blank vs zero, salary receipt, original photo persists and reloads', async
   await page.getByLabel('實際入帳日（未入帳留白）').fill(today);await page.getByRole('button',{name:'儲存薪資',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('薪資已入帳');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:'從照片或 Drive 匯入'}).click();
   const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
   await page.getByLabel('照片（選填，8 MB 以下）').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:image});
   await page.getByRole('button',{name:'開始核對紙本'}).click();
@@ -81,8 +83,8 @@ test('blank vs zero, salary receipt, original photo persists and reloads', async
 
 test('beginner guidance, partial drafts, deletion and visible settings feedback', async ({ page, request }, info) => {
   await page.goto('/');
-  await expect(page.getByRole('region',{name:'開始使用'})).toBeInViewport();
-  await page.getByRole('button',{name:'1. 設定常見帳單'}).click();
+  await expect(page.getByRole('region',{name:'本月進度'})).toBeInViewport();
+  await page.getByRole('button',{name:'設定固定帳單',exact:true}).click();
   const title=page.locator('#fixed-settings').getByLabel('名稱',{exact:true});
   await expect(title).toBeFocused();await expect(title).toBeInViewport();
   await title.fill('管理費');
@@ -90,13 +92,13 @@ test('beginner guidance, partial drafts, deletion and visible settings feedback'
   await expect(page.locator('.saved-next')).toBeInViewport();
   await page.getByRole('button',{name:'前往加入本月帳單'}).click();
   await expect(page.locator('#month-checklist')).toBeInViewport();
-  await page.getByRole('button',{name:'手動新增其他帳單'}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   const editor=page.getByRole('region',{name:'核對草稿'});
   await expect(editor.getByLabel('應繳金額',{exact:true})).toHaveValue('');
   await editor.getByLabel('帳單名稱').fill('停車費');
   await editor.getByRole('button',{name:'保留，稍後再填'}).click();
   await expect(editor).toHaveCount(0);
-  await page.locator('#pending-bills .record').filter({hasText:'停車費'}).getByRole('button',{name:'核對',exact:true}).click();
+  await page.locator('#month-checklist .record').filter({hasText:'停車費'}).getByRole('button',{name:'核對',exact:true}).click();
   await expect(editor.getByLabel('帳單名稱')).toHaveValue('停車費');
   await expect(editor.getByLabel('應繳金額',{exact:true})).toHaveValue('');
   const month=await page.getByLabel('查看月份',{exact:true}).inputValue();
@@ -106,7 +108,7 @@ test('beginner guidance, partial drafts, deletion and visible settings feedback'
   await expect(page.getByRole('dialog')).not.toBeVisible();
   let saved=await (await request.get('/api/demo')).json();
   expect(saved.bills.find((b:any)=>b.title==='停車費').amount).toBe(1500);
-  await page.getByRole('button',{name:'手動新增帳單',exact:true}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   page.once('dialog',dialog=>dialog.accept());
   await editor.getByRole('button',{name:'刪除草稿',exact:true}).click();
   saved=await (await request.get('/api/demo')).json();expect(saved.drafts).toHaveLength(0);
@@ -145,7 +147,7 @@ test('unsaved changes can be kept, discarded or saved before navigation', async 
   await page.getByRole('button',{name:'儲存薪資',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('實際收入');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
-  await page.getByRole('button',{name:'手動新增帳單',exact:true}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   await page.getByLabel('帳單名稱').fill('尚未完成');
   await page.getByRole('button',{name:'總覽',exact:true}).click();
   await dialog.getByRole('button',{name:'儲存並離開'}).click();
