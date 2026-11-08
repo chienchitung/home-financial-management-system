@@ -203,6 +203,12 @@ export function apply(data: Snapshot, input: Record<string, unknown>, options: A
       if (receipt) data.salaryReceipts[input.month] = receipt as string; else delete data.salaryReceipts[input.month];
       break;
     }
+    case 'month_income': {
+      // Salary and investment saved together; the caller discards `data` if either step throws.
+      apply(data, { action: 'salary', month: input.month, amount: input.salary, receivedOn: input.receivedOn }, options);
+      apply(data, { action: 'investment', month: input.month, amount: input.amount, dividends: input.dividends }, options);
+      break;
+    }
     case 'reset': return freshLedger();
     default: throw new LedgerError('無法識別此操作。');
   }
