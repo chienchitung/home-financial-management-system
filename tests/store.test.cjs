@@ -34,3 +34,23 @@ test('investment replaces monthly amounts; salary is estimated until dated',()=>
 mutate({action:'salary',month:'2026-11',amount:68000,receivedOn:'2026-11-01'});assert.equal(summarize(read(),'2026-11').salaryReceived,true);mutate({action:'salary',month:'2026-11',amount:68000,receivedOn:''});assert.equal(summarize(read(),'2026-11').salaryReceived,false);
 for(const amount of [-1,1.1,'0',1000000000])assert.throws(()=>mutate({action:'investment',month:'2026-11',amount,dividends:0}));});
 test('legacy data and explicit zero survive upgrade with backup',()=>{const old=fixture();old.entries=[{id:'salary',date:'2026-11-30',amount:68000,kind:'income',label:'預設'},{id:'old-expense',date:'2026-11-01',amount:999999,kind:'expense',label:'legacy'}];old.investments={'2026-11':{amount:0,dividends:0}};write(old);assert.equal(present(read()).totals['2026-11'].expenses,0);assert.equal(summarize(read(),'2026-11').investment,0);assert.equal(summarize(read(),'2026-11').salaryReceived,false);mutate({action:'complete_month',month:'2026-11',complete:true});assert.ok(fs.existsSync(path.join(process.env.DEMO_DATA_DIR,'ledger.json.before-v020')));assert.equal(read().entries.length,2);});
+test('partial manual drafts stay outside expenses, explicit zero survives, deletion releases completion',()=>{
+  write();mutate({action:'manual_draft',month:'2026-11'});
+  const draft=read().drafts[0];
+  assert.equal(draft.amountUnfilled,true);
+  const fields={id:draft.id,title:'其他帳單',month:'2026-11',due:'',amount:null,source:'paper'};
+  mutate({action:'save_draft',...fields});
+  assert.equal(read().drafts[0].title,'其他帳單');
+  assert.equal(read().drafts[0].amountUnfilled,true);
+  assert.equal(summarize(read(),'2026-11').expenses,0);
+  assert.throws(()=>mutate({action:'confirm',...fields}));
+  assert.throws(()=>mutate({action:'save_draft',...fields,amount:-1}));
+  assert.throws(()=>mutate({action:'complete_month',month:'2026-11',complete:true}));
+  mutate({action:'save_draft',...fields,amount:0,due:'2026-11-20'});
+  assert.equal(read().drafts[0].amountUnfilled,false);
+  mutate({action:'delete_draft',id:draft.id});
+  assert.equal(read().drafts.length,0);
+  mutate({action:'complete_month',month:'2026-11',complete:true});
+  assert.equal(summarize(read(),'2026-11').billsComplete,true);
+  assert.throws(()=>mutate({action:'delete_draft',id:draft.id}));
+});

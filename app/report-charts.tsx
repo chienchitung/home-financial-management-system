@@ -55,7 +55,7 @@ export function MonthlyTrend({ month, totals, onMonth }: TrendProps) {
 
   return <section className="panel trend-panel" aria-labelledby={`${id}-title`}>
     <div className="trend-heading">
-      <div><h2 id={`${id}-title`}>{range === 6 ? `${months[0]} 至 ${months[5]}` : `${year} 年`}收支趨勢</h2><p>由左至右查看月份，點選月份查看金額。</p></div>
+      <div><h2 id={`${id}-title`}>{range === 6 ? `${months[0]} 至 ${months[5]}` : `${year} 年`} 收支趨勢</h2><p>由左至右查看月份，點選月份查看金額。</p></div>
       <div className="chart-controls"><div className="chart-modes" role="group" aria-label="趨勢圖期間"><button type="button" aria-pressed={range===6} onClick={()=>{setRange(6);setRangeEnd(month);}}>近半年</button><button type="button" aria-pressed={range===12} onClick={()=>setRange(12)}>全年</button></div><div className="chart-modes" role="group" aria-label="趨勢圖顯示內容">
         <button type="button" aria-pressed={!expenseOnly} onClick={() => setExpenseOnly(false)}>收支比較</button>
         <button type="button" aria-pressed={expenseOnly} onClick={() => setExpenseOnly(true)}>只看支出</button>
@@ -105,20 +105,20 @@ export function MonthlyTrend({ month, totals, onMonth }: TrendProps) {
         </svg>
       </div>
     </div>
-    <p className="chart-scroll-hint">左右滑動可查看其他月份。</p>
+    {range===12&&<p className="chart-scroll-hint">左右滑動可查看其他月份。</p>}
     <div className="trend-selected" role="status" aria-live="polite">
       <b>{year} 年 {Number(month.slice(5))} 月</b>
       {selected ? <dl>
         <div><dt>收入</dt><dd>{dollars(selected.income)}</dd></div>
         <div><dt>支出</dt><dd>{valueText(month, 'expenses')}{!selected.billsComplete && selected.hasBills ? '（未收齊）' : ''}</dd></div>
-        <div><dt>股票投入</dt><dd>{valueText(month, 'investment')}</dd></div><div><dt>預估可分配餘額</dt><dd>{selected.balance === null ? '待補資料' : dollars(selected.balance)}</dd></div>
+        <div><dt>股票投入</dt><dd>{valueText(month, 'investment')}</dd></div><div><dt>本月預計剩餘</dt><dd>{selected.balance === null ? '待補資料' : dollars(selected.balance)}</dd></div>
       </dl> : <span>尚無紀錄，匯入並核對帳單後即可查看。</span>}
     </div>
     <p className="chart-note">收入含預估薪資及已填股息；未填金額不畫成零。帳單未收齊時，支出只代表已收到的金額。</p>
     <details className="trend-table"><summary>查看每月數字</summary>
       <div className="table-scroll"><table>
         <caption>{months[0]} 至 {months[months.length - 1]}，金額單位：新臺幣</caption>
-        <thead><tr><th scope="col">月份</th><th scope="col">收入</th><th scope="col">支出</th><th scope="col">股票投入</th><th scope="col">預估可分配餘額</th></tr></thead>
+        <thead><tr><th scope="col">月份</th><th scope="col">收入</th><th scope="col">支出</th><th scope="col">股票投入</th><th scope="col">本月預計剩餘</th></tr></thead>
         <tbody>{months.map(key => <tr key={key} aria-current={key === month ? 'date' : undefined}>
           <th scope="row"><button type="button" onClick={() => onMonth(key)} aria-label={`查看 ${key} 明細`}>{key}</button></th>
           {totals[key] ? <><td>{format.format(totals[key].income)}</td><td>{valueText(key, 'expenses')}{!totals[key].billsComplete ? '（未收齊）' : ''}</td><td>{valueText(key, 'investment')}</td><td>{totals[key].balance === null ? '待補資料' : format.format(totals[key].balance)}</td></>

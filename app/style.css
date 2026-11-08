@@ -199,3 +199,39 @@ h3 { font-size: 15px; margin: 12px 0 8px; }
 .monthly-chart .trend-axis { width: 64px; height: 288px; }
 .trend-months { left: 64px; right: 20px; }
 .chart-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* First-use guidance and visible feedback. */
+.getting-started { background: #edf5f0; }
+.start-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.start-steps button { text-align: left; padding: 12px; }
+.start-steps b, .start-steps small { display: block; }
+.start-steps small { margin-top: 4px; font-weight: 400; }
+.bill-entry, .saved-next, .missing-links { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.bill-entry > div { flex: 1 1 260px; }
+.bill-entry p { margin: 0; }
+.saved-next { padding: 12px; background: #edf5f0; border-radius: 9px; margin-block: 12px; }
+.missing-links { margin-top: 12px; font-size: 14px; }
+.form-feedback { grid-column: 1 / -1; flex-basis: 100%; margin: 0 !important; font-size: 14px; }
+.form-feedback:empty { display: none; }
+.floating-notice { position: fixed; bottom: 20px; right: 20px; max-width: min(520px,calc(100vw - 40px)); z-index: 4; box-shadow: 0 4px 22px #172c2820; border: 1px solid #acc5b7; display: flex; align-items: center; gap: 12px; margin: 0; }
+.floating-notice button { flex: none; padding: 2px 10px; min-height: 36px; }
+.unsaved-dialog { max-width: min(480px,calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 16px; padding: 24px; color: var(--ink); }
+.unsaved-dialog::backdrop { background: #10292188; }
+.dialog-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+#fixed-settings, #month-checklist, #pending-bills, #investment-form { scroll-margin-top: 16px; }
+small, .stats small, .check-label, .status-chips span, .chart-note, .trend-selected dt, .trend-toolbar, .trend-heading p { font-size: 14px; }
+.panel .chart-note { font-size: 14px; }
+.monthly-chart.six-months { min-width: 0; }
+.six-months .trend-months button span { padding-inline: 3px; }
+@media (max-width:740px) {
+  .start-steps { grid-template-columns: 1fr; gap: 7px; }
+  .start-steps button { padding: 8px 12px; }
+  .floating-notice { bottom: calc(76px + env(safe-area-inset-bottom)); right: 15px; max-width: calc(100vw - 30px); }
+  .stats small { font-size: 14px; }
+  .stats .metric-title { flex-wrap: wrap; }
+  .trend-selected dd { font-size: 14px; }
+}
+html { scroll-padding-block: 20px 160px; }
+.floating-notice { pointer-events: none; }
+.floating-notice button { pointer-events: auto; }
+@media (max-width:740px) { main { padding-bottom: calc(160px + env(safe-area-inset-bottom)); } }

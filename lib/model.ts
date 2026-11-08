@@ -2,7 +2,7 @@ export type Entry = { id: string; date: string; label: string; amount: number; k
 export type BillSource = 'paper' | 'card' | 'bank';
 export type Original = { title: string; month: string; due: string; amount: number };
 export type Draft = Original & {
-  id: string; source: BillSource; coveredByCard?: boolean; autoDebit?: boolean;
+  id: string; source: BillSource; manual?: boolean; amountUnfilled?: boolean; coveredByCard?: boolean; autoDebit?: boolean;
   scheduleId?: string; attachmentId?: string; original?: Original; rows?: Entry[];
 };
 export type Bill = Draft & { paidOn?: string; voidedOn?: string };

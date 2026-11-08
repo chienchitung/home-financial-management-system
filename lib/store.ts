@@ -55,6 +55,33 @@ function billFields(data: Snapshot, input: Record<string, unknown>, bill: Draft)
 export function mutate(input: Record<string, unknown>) {
   const data = read();
   switch (input.action) {
+    case 'manual_draft': {
+      requireValue(validMonth(input.month), '請選擇月份。');
+      data.drafts.push({ id: randomUUID(), title: '', month: input.month, due: '', amount: 0, source: 'paper', manual: true, amountUnfilled: true });
+      reopen(data, input.month); break;
+    }
+    case 'delete_draft': {
+      const draft = data.drafts.find(item => item.id === input.id);
+      requireValue(draft, '草稿不存在或已儲存到帳本。');
+      data.drafts = data.drafts.filter(item => item.id !== draft.id);
+      reopen(data, draft.month); break;
+    }
+    case 'save_draft': {
+      const draft = data.drafts.find(item => item.id === input.id);
+      requireValue(draft && draft.source !== 'bank', '草稿不存在或僅供查閱。');
+      // Partial drafts may be kept, but must still be validated before becoming a bill.
+      requireValue(typeof input.title === 'string' && input.title.trim().length <= 100 && validMonth(input.month), '請核對名稱與月份。');
+      requireValue(input.amount === null || amountValid(input.amount), '金額請填非負整數。');
+      requireValue(input.due === '' || dateValid(input.due), '繳費期限有誤。');
+      requireValue(input.source === 'paper' || input.source === 'card', '請選擇帳單類型。');
+      const oldMonth = draft.month;
+      draft.original = original(draft);
+      Object.assign(draft, { title: input.title.trim(), month: input.month, due: input.due, amount: input.amount ?? 0,
+        amountUnfilled: input.amount === null, source: input.source,
+        scheduleId: typeof input.scheduleId === 'string' ? input.scheduleId : undefined,
+        autoDebit: input.autoDebit === true, coveredByCard: input.source === 'paper' && input.coveredByCard === true });
+      reopen(data, oldMonth, draft.month); break;
+    }
     case 'paper': {
       const sample = paperSamples.find(item => item.title === input.title);
       requireValue(sample, '請選擇紙本樣本。');
