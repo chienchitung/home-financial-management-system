@@ -1,6 +1,6 @@
 # 家庭收支管理系統規格書
 
-版本 v0.22｜總覽與帳單頁整併｜公開版｜2026-11-08
+版本 v0.23｜Google 帳號登入｜公開版｜2026-11-08
 
 ## 1. 本輪已確認範圍
 
@@ -122,3 +122,13 @@ Demo 帳本儲存在本機 JSON；新上傳照片會保存在本機附件目錄�
 - 「新增帳單」是唯一主要按鈕；照片示範與 Drive 模擬匯入收進「從照片或 Drive 匯入」，固定帳單設定改為可開關的區塊。從總覽前往設定時自動展開並聚焦名稱欄位。
 - 非本月的草稿與存款對帳單另列「其他待處理」，沒有項目時不顯示。
 - 計算規則、資料格式與 API 不變；未儲存提醒、草稿保留及刪除行為維持 v0.21。
+
+## 11. v0.23 Google 帳號登入
+
+- 以 Google OAuth 2.0／OpenID Connect（授權碼＋PKCE、state、nonce）登入，只要求 `openid email profile`，不取得 Drive 權限；Drive 授權日後另行處理。
+- 僅 `ALLOWED_EMAILS` 名單內且 Google 標示已驗證的 Email 可登入；每次請求重新比對名單，移除後立即失效。
+- 登入狀態存於 HttpOnly、SameSite=Lax 的簽章 cookie（HMAC-SHA256，7 天），HTTPS 下加 Secure；不另存伺服器端 session。
+- `proxy.ts` 保護所有頁面與 API；帳本與附件 API 另在路由內再次檢查，不只依賴 proxy。未登入的頁面導向登入頁，API 回 401；前端收到 401 時回到登入頁。
+- 側欄顯示登入者名稱與 Email，可登出；登出前沿用未儲存提醒。
+- 模式：四個必填變數皆未設定且不在 Vercel 時為本機免登入 Demo；部分設定、`AUTH_SECRET` 少於 32 字元，或在 Vercel 未設定時，全部鎖定並列出缺少的變數名稱（不顯示值）。
+- 驗證：`npm test` 新增 4 組登入單元測試（模式判斷、cookie 竄改／過期／名單、ID token 欄位、PKCE）；`npm run test:e2e` 新增桌機與手機各 3 組，使用測試專用假憑證，不連線 Google。

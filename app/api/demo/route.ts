@@ -1,11 +1,14 @@
+import { denyUnlessAuthorized } from '../../../lib/auth';
 import { mutate, present, read } from '../../../lib/store';
 
 export const dynamic = 'force-dynamic';
-export function GET() {
+export function GET(request: Request) {
+  const denied = denyUnlessAuthorized(request); if (denied) return denied;
   if (process.env.VERCEL) return new Response(null, { status: 404 });
   return Response.json(present(read()));
 }
 export async function POST(request: Request) {
+  const denied = denyUnlessAuthorized(request); if (denied) return denied;
   if (process.env.VERCEL) return new Response(null, { status: 404 });
   try {
     const body: unknown = await request.json();

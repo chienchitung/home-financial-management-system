@@ -1,5 +1,7 @@
+import { denyUnlessAuthorized } from '../../../../lib/auth';
 import { attachment } from '../../../../lib/attachments';
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = denyUnlessAuthorized(request); if (denied) return denied;
   if (process.env.VERCEL) return new Response(null, { status: 404 });
   try {
     const { id } = await context.params; const file = attachment(id);

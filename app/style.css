@@ -257,3 +257,24 @@ html { scroll-padding-block: 20px 160px; }
   .toolbar .primary { flex: 1 1 100%; justify-content: center; }
   .toolbar button:not(.primary) { flex: 1 1 0; justify-content: center; padding-inline: 8px; font-size: 14px; }
 }
+
+/* Google sign-in */
+.login-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; max-width: none; }
+.login-card { width: min(420px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 32px 28px; display: grid; gap: 14px; box-shadow: 0 8px 30px #172c2810; }
+.login-card h1 { font-size: 26px; margin: 10px 0 0; letter-spacing: -.02em; }
+.login-card p { margin: 0; color: var(--muted); }
+.login-card .notice { color: var(--ink); }
+.login-card .notice.error { color: #752712; }
+.google-button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; margin-top: 6px; border: 1px solid #c9d3cd; border-radius: 10px; background: #fff; color: #1f1f1f; font-weight: 650; text-decoration: none; }
+.google-button:hover { border-color: var(--green); background: #f6faf7; }
+.missing-env { margin: 0; padding-left: 20px; }
+.account { display: grid; gap: 2px; min-width: 0; }
+.account b, .account span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account span { color: var(--muted); font-size: 13px; }
+.account form { margin-top: 6px; }
+.side-note .account { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+@media (max-width: 740px) {
+  .side-note .account span, .side-note .account b { display: none; }
+  .account form { margin: 0; }
+  .side-note .account { padding: 0; margin: 0; border: 0; }
+}

@@ -17,8 +17,18 @@ npm test
 npm run test:e2e
 ```
 
-瀏覽器測試需本機安裝 Google Chrome，並在 3101 埠啟動獨立測試伺服器；先完成 build。測試結果與畫面位於 `test-results/`、`artifacts/`。測試不操作既有帳本。
+瀏覽器測試需本機安裝 Google Chrome，並在 3101 埠（免登入）與 3102 埠（Google 登入模式，使用測試專用假憑證，不連線 Google）啟動獨立測試伺服器；先完成 build。測試結果與畫面位於 `test-results/`、`artifacts/`。測試不操作既有帳本。
 
+
+## Google 登入
+
+未設定時本機維持免登入 Demo。要啟用登入：
+
+1. 在 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 建立「OAuth 用戶端 ID」，類型選「網頁應用程式」。
+2. 「已授權的重新導向 URI」填 `http://localhost:3000/api/auth/callback`（正式網址則填 `https://<網域>/api/auth/callback`）。
+3. 複製 `.env.example` 為 `.env.local`，填入用戶端 ID、密鑰、`AUTH_SECRET` 與允許的 Email，重新 `npm run build` 後啟動，並用 `AUTH_URL` 的網址開啟。
+
+只有 `ALLOWED_EMAILS` 內、且 Google 已驗證的 Email 能登入；從名單移除後，既有登入立即失效。登入狀態保留 7 天。變數只填一部分，或部署在 Vercel 卻未設定時，所有頁面與 API 會鎖定並顯示缺少的變數名稱。Vercel 上的帳本資料 API 仍停用，需等 Neon 資料庫接入。
 
 ## 新手操作
 
@@ -30,4 +40,4 @@ npm run test:e2e
 
 這份儲存庫包含程式碼、測試與去識別化規格。範例金額均為示範用途，本機帳本、帳單照片、私人規格、環境設定及測試截圖不納入版本控制。
 
-目前為本機 Demo。GitHub 保存原始碼，尚未提供可線上使用的帳本；正式上線前需完成登入與雲端儲存串接。
+目前為本機 Demo。GitHub 保存原始碼，尚未提供可線上使用的帳本；Google 登入已完成，正式上線前仍需串接雲端儲存。

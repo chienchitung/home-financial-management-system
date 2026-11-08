@@ -1,5 +1,7 @@
+import { denyUnlessAuthorized } from '../../../lib/auth';
 import { saveAttachment } from '../../../lib/attachments';
 export async function POST(request: Request) {
+  const denied = denyUnlessAuthorized(request); if (denied) return denied;
   if (process.env.VERCEL) return new Response(null, { status: 404 });
   try {
     if (Number(request.headers.get('content-length')) > 9 * 1024 * 1024) throw new Error('照片過大，請縮小至 8 MB 以下。');

@@ -32,15 +32,18 @@ function LedgerApp() {
   const [error,setError]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [importOpen,setImportOpen]=useState(false);
+  const [account,setAccount]=useState<{name:string;email:string}|null>(null);
   useEffect(()=>{
     const today=taipeiToday();setToday(today);setMonth(today.slice(0,7));
-    fetch('/api/demo').then(async response=>{if(!response.ok)throw new Error('讀取失敗');setData(await response.json());})
+    fetch('/api/auth/session').then(response=>response.json()).then(result=>setAccount(result.user??null)).catch(()=>{});
+    fetch('/api/demo').then(async response=>{if(response.status===401){window.location.href='/login';return;}if(!response.ok)throw new Error('讀取失敗');setData(await response.json());})
       .catch(()=>{setError(true);setMessage('無法載入帳本，請重新整理。');});
   },[]);
   async function send(action:string,fields:Record<string,unknown>,done:string):Promise<Ledger|undefined> {
     setBusy(true);setMessage('');
     try {
       const response=await fetch('/api/demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...fields})});
+      if(response.status===401){window.location.href='/login';return undefined;}
       const result=await response.json();if(!response.ok)throw new Error(result.error);
       setData(result);setError(false);setMessage(done);return result;
     } catch(cause){setError(true);setMessage(cause instanceof Error?cause.message:'操作失敗');return undefined;}
@@ -113,7 +116,9 @@ function LedgerApp() {
   return <div className="shell"><aside>
     <div className="brand"><span><Icon name="brand"/></span><div>家用帳本<small>HOUSEHOLD LEDGER</small></div></div>
     <nav aria-label="主要導覽">{sections.map(item=><button key={item.title} className={tab===item.title?'active':''} aria-current={tab===item.title?'page':undefined} disabled={busy} onClick={()=>navigate(item.title)}><Icon name={item.icon}/>{item.title}</button>)}</nav>
-    <div className="side-note"><b>本機示範</b><p>假資料儲存在此電腦，尚未連接雲端。</p><button className="text-button" disabled={busy||!data} onClick={()=>guard(async()=>{if(window.confirm('要清除示範操作並重設嗎？'))if(await send('reset',{},'已恢復示範資料。')){setReview(undefined);setPhoto(undefined);setTab('總覽');}})}>重設示範資料</button></div>
+    <div className="side-note">{account&&<div className="account"><b>{account.name}</b><span>{account.email}</span>
+      <form method="post" action="/api/auth/logout" onSubmit={event=>{const form=event.currentTarget;event.preventDefault();guard(()=>form.submit());}}><button className="text-button" disabled={busy}>登出</button></form></div>}
+      <b>本機示範</b><p>假資料儲存在此電腦，尚未連接雲端。</p><button className="text-button" disabled={busy||!data} onClick={()=>guard(async()=>{if(window.confirm('要清除示範操作並重設嗎？'))if(await send('reset',{},'已恢復示範資料。')){setReview(undefined);setPhoto(undefined);setTab('總覽');}})}>重設示範資料</button></div>
   </aside><main>
     <header><div><div className="eyebrow">家庭財務工作台</div><h1>{tab==='總覽'?'收支總覽':tab}</h1><p>{section.hint}</p></div><span className="badge demo-badge">本機 Demo</span></header>
     {message&&<div className={'notice floating-notice '+(error?'error':'')}><span role={error?'alert':'status'}>{message}</span><button aria-label="關閉提示" onClick={()=>setMessage('')}>×</button></div>}
