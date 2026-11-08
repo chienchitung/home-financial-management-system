@@ -28,7 +28,9 @@ function save(data: Snapshot) {
   writeFileSync(path + '.tmp', JSON.stringify(data, null, 2), { mode: 0o600 });
   renameSync(path + '.tmp', path);
 }
-function requireValue(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
+/** An input or business-rule problem the user can fix; anything else is a server failure. */
+export class LedgerError extends Error {}
+function requireValue(condition: unknown, message: string): asserts condition { if (!condition) throw new LedgerError(message); }
 const amountValid = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= 999999999;
 const dateValid = (v: unknown): v is string => {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
@@ -52,8 +54,18 @@ function billFields(data: Snapshot, input: Record<string, unknown>, bill: Draft)
     source: input.source, scheduleId, autoDebit: input.autoDebit === true,
     coveredByCard: input.source === 'paper' && input.coveredByCard === true } as const;
 }
+export type ApplyOptions = { attachmentExists: (id: string) => boolean };
+const fileAttachmentExists = (id: string) => existsSync(join(directory, 'attachments', id + '.json'));
+export const freshLedger = (): Snapshot => structuredClone(seed);
+
+/** Local JSON storage: read, apply and save in one step. */
 export function mutate(input: Record<string, unknown>) {
-  const data = read();
+  const data = apply(read(), input, { attachmentExists: fileAttachmentExists });
+  save(data); return input.action === 'reset' ? read() : data;
+}
+
+/** Business rules only; storage-independent. Mutates and returns `data` (a fresh ledger for reset). */
+export function apply(data: Snapshot, input: Record<string, unknown>, options: ApplyOptions): Snapshot {
   switch (input.action) {
     case 'manual_draft': {
       requireValue(validMonth(input.month), '請選擇月份。');
@@ -87,7 +99,7 @@ export function mutate(input: Record<string, unknown>) {
       requireValue(sample, '請選擇紙本樣本。');
       requireValue(validMonth(input.month), '請選擇月份。');
       const attachmentId = typeof input.attachmentId === 'string' ? input.attachmentId : undefined;
-      if (attachmentId) requireValue(/^[a-f0-9-]{36}$/.test(attachmentId) && existsSync(join(directory, 'attachments', attachmentId + '.json')), '照片不存在，請重新上傳。');
+      if (attachmentId) requireValue(/^[a-f0-9-]{36}$/.test(attachmentId) && options.attachmentExists(attachmentId), '照片不存在，請重新上傳。');
       data.drafts.push({ ...sample, id: randomUUID(), month: input.month, due: input.month + '-24', source: 'paper', attachmentId });
       reopen(data, input.month);
       break;
@@ -191,10 +203,10 @@ export function mutate(input: Record<string, unknown>) {
       if (receipt) data.salaryReceipts[input.month] = receipt as string; else delete data.salaryReceipts[input.month];
       break;
     }
-    case 'reset': save(structuredClone(seed)); return read();
-    default: throw new Error('無法識別此操作。');
+    case 'reset': return freshLedger();
+    default: throw new LedgerError('無法識別此操作。');
   }
-  save(data); return data;
+  return data;
 }
 export function present(data: Snapshot): Ledger {
   const months = new Set([data.month, month, ...data.bills.map(item => item.month), ...data.drafts.map(item => item.month),

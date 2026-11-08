@@ -128,3 +128,8 @@ export function denyUnlessAuthorized(request: Request): Response | null {
   return readSession(readCookie(request, SESSION_COOKIE), config) ? null
     : Response.json({ error: '登入已失效，請重新登入。' }, { status: 401 });
 }
+
+/** The signed-in user for audit records; null in local demo mode. */
+export function currentUser(request: Request): SessionUser | null {
+  return readSession(readCookie(request, SESSION_COOKIE), authConfig());
+}

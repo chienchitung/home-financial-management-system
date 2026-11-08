@@ -1,6 +1,6 @@
 # 家庭收支管理系統規格書
 
-版本 v0.23｜Google 帳號登入｜公開版｜2026-11-08
+版本 v0.24｜Neon 資料庫｜公開版｜2026-11-08
 
 ## 1. 本輪已確認範圍
 
@@ -132,3 +132,14 @@ Demo 帳本儲存在本機 JSON；新上傳照片會保存在本機附件目錄�
 - 側欄顯示登入者名稱與 Email，可登出；登出前沿用未儲存提醒。
 - 模式：四個必填變數皆未設定且不在 Vercel 時為本機免登入 Demo；部分設定、`AUTH_SECRET` 少於 32 字元，或在 Vercel 未設定時，全部鎖定並列出缺少的變數名稱（不顯示值）。
 - 驗證：`npm test` 新增 4 組登入單元測試（模式判斷、cookie 竄改／過期／名單、ID token 欄位、PKCE）；`npm run test:e2e` 新增桌機與手機各 3 組，使用測試專用假憑證，不連線 Google。
+
+## 12. v0.24 Neon 資料庫
+
+- 設定 `DATABASE_URL` 時改用 Postgres（正式為 Neon，連線使用 pooled 連線字串）；未設定時維持本機 JSON。Vercel 上未設定資料庫時 API 回 503，不使用不持久的本機檔案。
+- 本輪以「每個家庭一筆 JSONB 帳本文件」儲存（`ledgers`），商業規則與 JSON 版完全共用（`lib/store.ts` 的 `apply`），不另寫一套 SQL 規則。照片存 `attachments`（bytea，限同一本帳本存取），每次修改記錄於 `ledger_events`（操作、操作者 Email、版本、時間）。
+- 第 5 節規劃的拆分資料表（帳單、付款紀錄、每月薪資／投資等）延後到需要以 SQL 查詢或 Drive 匯入時再做；屆時可由 JSONB 文件直接轉換。
+- 每次修改在交易中以 `SELECT … FOR UPDATE` 鎖定帳本列，同時操作依序套用、不遺失更新；驗證失敗整筆回滾。輸入錯誤回 400，資料庫或連線錯誤回 500 並寫入伺服器記錄，前端保留輸入。
+- 所有允許登入的帳號共用 `LEDGER_ID`（預設 household）這本帳本。新帳本為空白，預設月薪取自 `LEDGER_DEFAULT_SALARY`，不寫入原始碼。
+- 雲端模式隱藏並拒絕「重設示範資料」，除非明確設定 `LEDGER_ALLOW_RESET=1`（僅供測試）。
+- `npm run db:import` 將本機 `ledger.json` 與照片匯入；雲端帳本已有修改時拒絕覆寫，需 `--force`。
+- 驗證：設定 `TEST_DATABASE_URL` 時，`npm test` 另跑 6 組資料庫測試（建表、版本與操作紀錄、錯誤回滾、併發寫入、照片隔離、匯入腳本），`npm run test:e2e` 以資料庫模式再跑 5 組帳本流程。
