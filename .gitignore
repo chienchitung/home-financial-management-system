@@ -1,0 +1,15 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.demo-data/
+.env*
+playwright-report/
+test-results/
+
+# Local financial information and generated previews
+/家庭收支管理系統規格書.md
+/docs/archive/
+/artifacts/
+.DS_Store
+*.log
