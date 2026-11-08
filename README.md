@@ -36,8 +36,8 @@ npm run test:e2e
 
 未設定 `DATABASE_URL` 時，資料存在本機 `.demo-data/`。設定後改存 Postgres（Neon），所有登入的家人共用同一本帳本。
 
-1. 在 [Neon](https://console.neon.tech) 建立專案，Connect 選「Pooled connection」，複製連線字串到 `.env.local` 的 `DATABASE_URL`。
-2. 視需要設定 `LEDGER_DEFAULT_SALARY`（預設月薪，私人資訊只放環境變數）。
+1. 在 [Neon](https://console.neon.tech) 建立專案（建議選 Singapore，與 `vercel.json` 設定的 Vercel 函式地區 `sin1` 相同），Connect 選「Pooled connection」，複製連線字串到 `.env.local` 的 `DATABASE_URL`。
+2. 視需要設定 `LEDGER_DEFAULT_SALARY`（預設月薪，私人資訊只放環境變數；設定後即以此為準，可隨時修改）。
 3. 第一次讀寫時會自動建立資料表；新的雲端帳本是空的，不含示範資料。
 4. 要把本機既有帳本與照片搬上去：
 

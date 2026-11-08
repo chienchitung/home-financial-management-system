@@ -42,6 +42,8 @@ test('a new database creates the schema and an empty household ledger',{skip},as
   assert.deepEqual([ledger.bills.length,ledger.drafts.length,ledger.salary],[0,0,50000]);
   const tables=(await query(`SELECT table_name FROM information_schema.tables WHERE table_schema=$1 ORDER BY 1`,[schema])).map(row=>row.table_name);
   assert.deepEqual(tables,['attachments','ledger_events','ledgers']);
+  process.env.LEDGER_DEFAULT_SALARY='61000';
+  try{assert.equal((await repo.loadLedger()).salary,61000);}finally{process.env.LEDGER_DEFAULT_SALARY='50000';}
 });
 
 test('changes persist with version, actor and event log; rejected input changes nothing',{skip},async()=>{

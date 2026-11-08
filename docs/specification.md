@@ -159,3 +159,10 @@ Demo 帳本儲存在本機 JSON；新上傳照片會保存在本機附件目錄�
 - 原因：Vercel 函式單次請求約 4.5 MB，手機照片常超過；照片存在資料庫，縮圖可大幅節省空間。
 - 瀏覽器無法解碼的格式（例如 Safari 以外開啟 HEIC）改傳原檔；縮完仍超過 4 MB 時不送出，直接提示改用 JPEG 或先縮小。伺服器仍保留 8 MB 上限檢查。
 - 驗證：e2e 新增桌機與手機各 1 組，上傳 4000×3000、超過 8 MB 的 PNG，確認保存為 2000×1500、小於 4 MB 的 JPEG。
+
+## 15. Neon 專案與部署地區
+
+- Neon 專案建立於 AWS Singapore（ap-southeast-1，Postgres 17），資料庫 `ledger`，資料表已建立；連線字串不放入儲存庫。
+- `vercel.json` 將 Vercel 函式固定在 `sin1`（Singapore），與資料庫同區以降低延遲。
+- 首次建表改用交易級 advisory lock：Neon 連線池為交易模式，工作階段鎖可能鎖在無法解鎖的連線上。
+- `LEDGER_DEFAULT_SALARY` 設定時即為預設月薪的依據，不再只在帳本建立當下寫入。

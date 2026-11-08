@@ -30,6 +30,13 @@ export function emptyLedger(env: Record<string, string | undefined> = process.en
     synced: false, drafts: [], bills: [], entries: [], schedules: [] };
 }
 
+/** When LEDGER_DEFAULT_SALARY is set it is authoritative, so it can be configured after the ledger exists. */
+function withConfiguredSalary(data: Snapshot) {
+  const configured = process.env.LEDGER_DEFAULT_SALARY?.trim();
+  const salary = Number(configured);
+  return configured && Number.isSafeInteger(salary) && salary >= 0 ? { ...data, salary } : data;
+}
+
 const globalForDb = globalThis as unknown as { ledgerPool?: Pool; ledgerSchema?: Promise<void> };
 function pool() {
   globalForDb.ledgerPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
@@ -39,9 +46,15 @@ async function ready() {
   globalForDb.ledgerSchema ??= (async () => {
     const client = await pool().connect();
     try {
-      // Serialise first-time setup across concurrent cold starts.
-      await client.query('SELECT pg_advisory_lock(hashtext($1))', ['ledger-schema']);
-      try { await client.query(SCHEMA_SQL); } finally { await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['ledger-schema']); }
+      // Serialise first-time setup across concurrent cold starts. A transaction-scoped lock is required:
+      // Neon's pooler (transaction mode) may run separate statements on different server connections,
+      // so a session lock could be taken on one and never released.
+      await client.query('BEGIN');
+      try {
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['ledger-schema']);
+        await client.query(SCHEMA_SQL);
+        await client.query('COMMIT');
+      } catch (error) { await client.query('ROLLBACK').catch(() => {}); throw error; }
     } finally { client.release(); }
   })().catch(error => { globalForDb.ledgerSchema = undefined; throw error; });
   return globalForDb.ledgerSchema;
@@ -56,7 +69,7 @@ export async function loadLedger() {
   if (mode === 'file') return present(readFile());
   await ready(); const id = ledgerId(); await ensureLedger(id);
   const { rows } = await pool().query<{ data: Snapshot }>('SELECT data FROM ledgers WHERE id = $1', [id]);
-  return present(rows[0].data);
+  return present(withConfiguredSalary(rows[0].data));
 }
 
 export async function runAction(input: Record<string, unknown>, actor?: string) {
@@ -73,7 +86,7 @@ export async function runAction(input: Record<string, unknown>, actor?: string) 
     if (input.action === 'paper' && typeof input.attachmentId === 'string' && /^[a-f0-9-]{36}$/.test(input.attachmentId)) {
       known = (await client.query('SELECT 1 FROM attachments WHERE id = $1 AND ledger_id = $2', [input.attachmentId, id])).rowCount === 1;
     }
-    const data = apply(rows[0].data, input, { attachmentExists: () => known });
+    const data = apply(withConfiguredSalary(rows[0].data), input, { attachmentExists: () => known });
     const version = rows[0].version + 1;
     await client.query('UPDATE ledgers SET data = $2, version = $3, updated_at = now(), updated_by = $4 WHERE id = $1', [id, JSON.stringify(data), version, actor ?? null]);
     await client.query('INSERT INTO ledger_events (ledger_id, action, actor, version) VALUES ($1, $2, $3, $4)', [id, String(input.action), actor ?? null, version]);
