@@ -47,7 +47,7 @@ npm run db:import
 
 雲端帳本已有修改時腳本會拒絕覆寫；確定要以本機資料取代才加 `-- --force`。
 
-雲端模式下「重設示範資料」隱藏且 API 拒絕執行（測試環境可設 `LEDGER_ALLOW_RESET=1`）。每次修改都在交易中鎖定帳本列，同時操作不會互相覆蓋，並記錄操作者與時間於 `ledger_events`。部署到 Vercel 時，在專案的 Environment Variables 設定 Google 登入與 `DATABASE_URL` 等變數；Vercel 函式的請求上限約 4.5 MB，較大的照片請先縮小。
+雲端模式下「重設示範資料」隱藏且 API 拒絕執行（測試環境可設 `LEDGER_ALLOW_RESET=1`）。每次修改都在交易中鎖定帳本列，同時操作不會互相覆蓋，並記錄操作者與時間於 `ledger_events`。部署到 Vercel 時，在專案的 Environment Variables 設定 Google 登入與 `DATABASE_URL` 等變數；照片在瀏覽器上傳前會自動縮成長邊 2000px 的 JPEG（通常數百 KB），以符合 Vercel 約 4.5 MB 的請求上限並節省資料庫空間。
 
 ## 新手操作
 

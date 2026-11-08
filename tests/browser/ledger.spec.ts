@@ -78,7 +78,7 @@ test('blank vs zero, salary receipt, original photo persists and reloads', async
   await page.getByRole('button',{name:'帳單',exact:true}).click();
   await page.getByRole('button',{name:'匯入帳單'}).click();
   const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
-  await page.getByLabel('照片（選填，8 MB 以下）').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:image});
+  await page.getByLabel('照片（選填）').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:image});
   await page.getByRole('button',{name:'開始核對紙本'}).click();
   await expect(page.getByRole('link',{name:'開啟／下載原始照片'})).toBeVisible();
   await page.getByRole('button',{name:'儲存到帳本'}).click();await page.reload();
@@ -187,4 +187,24 @@ test('failed save keeps edits; save-and-leave saves both income forms', async ({
   const data=await (await request.get('/api/demo')).json();
   expect(data.investments[data.month].amount).toBe(2000);
   expect(data.totals[data.month].salary).toBe(70000);
+});
+
+test('large photos are shrunk in the browser before upload', async ({ page, request }) => {
+  await page.goto('/');await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:'匯入帳單'}).click();
+  // A 4000x3000 noisy PNG, far above the hosted upload limit.
+  const png=Buffer.from(await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=4000;canvas.height=3000;
+    const context=canvas.getContext('2d')!;const image=context.createImageData(4000,3000);
+    for(let index=0;index<image.data.length;index+=4){image.data[index]=Math.random()*255;image.data[index+1]=Math.random()*255;image.data[index+2]=Math.random()*255;image.data[index+3]=255;}
+    context.putImageData(image,0,0);return canvas.toDataURL('image/png').split(',')[1];}),'base64');
+  expect(png.length).toBeGreaterThan(8*1024*1024);
+  await page.getByLabel('照片（選填）').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:png});
+  await expect(page.getByText(/上傳前會自動縮小/)).toBeVisible();
+  await page.getByRole('button',{name:'開始核對紙本'}).click();
+  const link=page.getByRole('link',{name:'開啟／下載原始照片'});await expect(link).toBeVisible();
+  const stored=await request.get((await link.getAttribute('href'))!);
+  expect(stored.headers()['content-type']).toBe('image/jpeg');
+  const bytes=await stored.body();expect(bytes.length).toBeLessThan(4*1024*1024);
+  const size=await page.evaluate(async src=>{const image=new Image();image.src=src;await image.decode();return [image.naturalWidth,image.naturalHeight];},(await link.getAttribute('href'))!);
+  expect(size).toEqual([2000,1500]);
 });

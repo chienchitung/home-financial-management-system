@@ -6,6 +6,7 @@ import { checklist, money, shiftMonth, summarize, taipeiToday } from '../lib/sum
 import { Icon } from './icons';
 import { MonthlyTrend } from './report-charts';
 import { FormSafety, TrackedForm, useFormSafety } from './form-safety';
+import { formatSize, prepareImage, UPLOAD_LIMIT_BYTES } from './image-resize';
 import { BillEditor, BillList, DraftRow, MonthBills, ScheduleSettings } from './bill-manager';
 
 const sections = [
@@ -159,13 +160,20 @@ function LedgerApp() {
             <div className="import-box"><h3>紙本照片（示範）</h3><small>目前帶入範例欄位，照片會保存供回看。</small>
               <TrackedForm onReset={()=>setPhoto(undefined)} onSave={async form=>{
                 const title=form.get('title');let attachmentId:string|undefined;
-                if(photo){setBusy(true);setMessage('');try{const body=new FormData();body.set('file',photo);const response=await fetch('/api/attachments',{method:'POST',body});const result=await response.json();if(!response.ok)throw new Error(result.error);attachmentId=result.id;}catch(cause){setError(true);setMessage(cause instanceof Error?cause.message:'照片上傳失敗');setBusy(false);return false;}}
+                if(photo){setBusy(true);setMessage('');try{
+                  const prepared=await prepareImage(photo);
+                  if(prepared.file.size>UPLOAD_LIMIT_BYTES)throw new Error(`照片太大（${formatSize(prepared.file.size)}），請改用 JPEG 或縮小到 4 MB 以下再上傳。`);
+                  const body=new FormData();body.set('file',prepared.file);const response=await fetch('/api/attachments',{method:'POST',body});
+                  if(response.status===401){window.location.href='/login';return false;}
+                  const result=await response.json().catch(()=>({error:response.status===413?'照片太大，請縮小後再上傳。':'照片上傳失敗，請稍後再試。'}));
+                  if(!response.ok)throw new Error(result.error);attachmentId=result.id;
+                }catch(cause){setError(true);setMessage(cause instanceof Error?cause.message:'照片上傳失敗');setBusy(false);return false;}}
                 const result=await send('paper',{title,month,attachmentId},'已帶入範例，請對照帳單核對。');
                 if(result)importedDraft.current=result.drafts[result.drafts.length-1];return !!result;
               }} onSaved={()=>{if(importedDraft.current)openDraft(importedDraft.current);setPhoto(undefined);setImportOpen(false);}}>
                 <label>帳單樣本<select name="title">{paperSamples.map(item=><option key={item.title}>{item.title}</option>)}</select></label>
-                <label>照片（選填，8 MB 以下）<input key={photo?'selected':'empty'} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={event=>setPhoto(event.target.files?.[0])}/></label>
-                {photo&&<small>已選擇：{photo.name}</small>}
+                <label>照片（選填）<input key={photo?'selected':'empty'} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={event=>setPhoto(event.target.files?.[0])}/></label>
+                {photo&&<small>已選擇：{photo.name}（{formatSize(photo.size)}，上傳前會自動縮小）</small>}
                 <button className="primary" disabled={busy}>開始核對紙本</button>
               </TrackedForm></div>
             <div className="import-box"><h3>Drive 匯入（模擬）</h3><small>取得一份信用卡範例帳單。</small>
