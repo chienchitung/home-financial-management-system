@@ -7,16 +7,19 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "test": "node --test tests/*.test.cjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:import": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/db-import.mjs"
   },
   "dependencies": {
     "next": "16.4.5",
+    "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
     "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "typescript": "7.0.2"

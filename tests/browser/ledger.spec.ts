@@ -7,8 +7,9 @@ test.beforeEach(async ({ request }) => { const response=await request.post('/api
 test('monthly checklist, editing, payment reversal and recoverable voiding', async ({ page, request }, info) => {
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
   const initial=await (await request.get('/api/demo')).json();const month=initial.month;
-  await page.goto('/');await expect(page.getByRole('region',{name:'每月收支'})).toContainText('待補資料');
+  await page.goto('/');await expect(page.getByRole('region',{name:'每月收支'})).toContainText('資料未齊');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:/^固定帳單設定/}).click();
   const settings=page.locator('form.settings-form');
   await settings.getByLabel('名稱',{exact:true}).fill('電信測試');
   await settings.getByLabel('自動扣款',{exact:true}).check();
@@ -18,27 +19,29 @@ test('monthly checklist, editing, payment reversal and recoverable voiding', asy
   const editor=page.getByRole('region',{name:'核對草稿'});
   await editor.getByLabel('應繳金額',{exact:true}).fill('1299');
   await editor.getByRole('button',{name:'儲存到帳本'}).click();
-  await expect(page.getByRole('heading',{name:'本期固定帳單 · 已收到 1／1 份'})).toBeVisible();
+  await expect(page.locator('#month-checklist')).toContainText('固定帳單已收到 1／1 份');
   await page.getByRole('button',{name:'本月帳單都已加入'}).click();
-  await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await page.getByLabel('本月新投入',{exact:true}).fill('10000');
   await page.getByLabel('本月股息',{exact:true}).fill('0');
-  await page.getByRole('button',{name:'儲存投資與股息'}).click();
+  await page.getByRole('button',{name:'儲存收入與投資'}).click();
   await page.getByRole('button',{name:'總覽',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('NT$ 56,481');
-  await expect(page.getByRole('button',{name:'確認已扣款'})).toBeVisible();
-  await page.getByRole('button',{name:'確認已扣款'}).click();
+  const unpaidRow=page.locator('.record').filter({has:page.getByRole('button',{name:'電信測試'})});
+  await expect(unpaidRow).toContainText('自動扣款');
+  await unpaidRow.getByRole('button',{name:'記為已繳'}).click();
   await page.getByRole('button',{name:'儲存繳款',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('NT$ 56,481');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
-  await page.getByRole('button',{name:'撤銷已繳'}).click();
-  await expect(page.getByRole('button',{name:'確認已扣款'})).toBeVisible();
-  const row=page.locator('.record').filter({has:page.getByText('電信測試',{exact:true})}).filter({has:page.getByRole('button',{name:'修改／原檔'})});
-  await row.getByRole('button',{name:'修改／原檔'}).click();
+  const row=page.locator('#month-checklist .record').filter({has:page.getByRole('button',{name:'電信測試'})});
+  await expect(row.locator('.badge')).toHaveText('已繳');
+  await row.getByRole('button',{name:'撤銷已繳'}).click();
+  await expect(row.getByRole('button',{name:'記為已繳'})).toBeVisible();
+  await row.getByRole('button',{name:'電信測試'}).click();
   await page.getByRole('region',{name:'修改帳單'}).getByLabel('應繳金額',{exact:true}).fill('1399');
   await page.getByRole('button',{name:'儲存修改'}).click();
   await expect(page.getByRole('region',{name:'本月資料完整度'})).toContainText('帳單待確認');
-  await row.getByRole('button',{name:'修改／原檔'}).click();
+  await row.getByRole('button',{name:'電信測試'}).click();
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'移除此帳單'}).click();
   await page.getByText('已移除清單（1）',{exact:true}).click();
@@ -57,32 +60,38 @@ test('monthly checklist, editing, payment reversal and recoverable voiding', asy
 });
 
 test('blank vs zero, salary receipt, original photo persists and reloads', async ({ page, request }) => {
-  await page.goto('/');await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.goto('/');await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await expect(page.getByLabel('本月新投入')).toHaveValue('');
-  await page.getByLabel('本月新投入').fill('0');await page.getByRole('button',{name:'儲存投資與股息'}).click();
-  await page.reload();await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.getByLabel('本月新投入').fill('0');await page.getByRole('button',{name:'儲存收入與投資'}).click();
+  await page.reload();await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await expect(page.getByLabel('本月新投入')).toHaveValue('0');await expect(page.getByLabel('本月股息')).toHaveValue('');
-  await page.getByLabel('本月新投入').fill('');await page.getByRole('button',{name:'儲存投資與股息'}).click();
+  await page.getByLabel('本月新投入').fill('');await page.getByRole('button',{name:'儲存收入與投資'}).click();
+  await expect(page.locator('.floating-notice')).toContainText('已儲存');
+  await page.getByRole('button',{name:'總覽',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('待填寫');
+  await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  await page.getByLabel('實際入帳日（未入帳留白）').fill(today);await page.getByRole('button',{name:'儲存薪資',exact:true}).click();
+  await page.getByLabel('實際入帳日（未入帳留白）').fill(today);await page.getByRole('button',{name:'儲存收入與投資'}).click();
+  await expect(page.getByRole('region',{name:'本月收入與投資'}).locator('.badge')).toHaveText('薪資已入帳');
+  await page.getByRole('button',{name:'總覽',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('薪資已入帳');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:'匯入帳單'}).click();
   const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
-  await page.getByLabel('照片（選填，8 MB 以下）').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:image});
+  await page.getByLabel('照片（選填）').setInputFiles({name:'sample.png',mimeType:'image/png',buffer:image});
   await page.getByRole('button',{name:'開始核對紙本'}).click();
   await expect(page.getByRole('link',{name:'開啟／下載原始照片'})).toBeVisible();
   await page.getByRole('button',{name:'儲存到帳本'}).click();await page.reload();
   await page.getByRole('button',{name:'帳單',exact:true}).click();
-  await page.locator('.record').filter({has:page.getByText('中華電信',{exact:true})}).getByRole('button',{name:'修改／原檔'}).click();
+  await page.getByRole('button',{name:'中華電信',exact:true}).click();
   const href=await page.getByRole('link',{name:'開啟／下載原始照片'}).getAttribute('href');
   const result=await request.get(href!);expect(result.ok()).toBeTruthy();expect(result.headers()['content-type']).toBe('image/png');expect((await result.body()).equals(image)).toBeTruthy();
 });
 
 test('beginner guidance, partial drafts, deletion and visible settings feedback', async ({ page, request }, info) => {
   await page.goto('/');
-  await expect(page.getByRole('region',{name:'開始使用'})).toBeInViewport();
-  await page.getByRole('button',{name:'1. 設定常見帳單'}).click();
+  await expect(page.getByRole('region',{name:'本月進度'})).toBeInViewport();
+  await page.getByRole('button',{name:'設定固定帳單',exact:true}).click();
   const title=page.locator('#fixed-settings').getByLabel('名稱',{exact:true});
   await expect(title).toBeFocused();await expect(title).toBeInViewport();
   await title.fill('管理費');
@@ -90,13 +99,13 @@ test('beginner guidance, partial drafts, deletion and visible settings feedback'
   await expect(page.locator('.saved-next')).toBeInViewport();
   await page.getByRole('button',{name:'前往加入本月帳單'}).click();
   await expect(page.locator('#month-checklist')).toBeInViewport();
-  await page.getByRole('button',{name:'手動新增其他帳單'}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   const editor=page.getByRole('region',{name:'核對草稿'});
   await expect(editor.getByLabel('應繳金額',{exact:true})).toHaveValue('');
   await editor.getByLabel('帳單名稱').fill('停車費');
   await editor.getByRole('button',{name:'保留，稍後再填'}).click();
   await expect(editor).toHaveCount(0);
-  await page.locator('#pending-bills .record').filter({hasText:'停車費'}).getByRole('button',{name:'核對',exact:true}).click();
+  await page.locator('#month-checklist .record').filter({hasText:'停車費'}).getByRole('button',{name:'核對',exact:true}).click();
   await expect(editor.getByLabel('帳單名稱')).toHaveValue('停車費');
   await expect(editor.getByLabel('應繳金額',{exact:true})).toHaveValue('');
   const month=await page.getByLabel('查看月份',{exact:true}).inputValue();
@@ -106,7 +115,7 @@ test('beginner guidance, partial drafts, deletion and visible settings feedback'
   await expect(page.getByRole('dialog')).not.toBeVisible();
   let saved=await (await request.get('/api/demo')).json();
   expect(saved.bills.find((b:any)=>b.title==='停車費').amount).toBe(1500);
-  await page.getByRole('button',{name:'手動新增帳單',exact:true}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   page.once('dialog',dialog=>dialog.accept());
   await editor.getByRole('button',{name:'刪除草稿',exact:true}).click();
   saved=await (await request.get('/api/demo')).json();expect(saved.drafts).toHaveLength(0);
@@ -121,7 +130,7 @@ test('beginner guidance, partial drafts, deletion and visible settings feedback'
 });
 
 test('unsaved changes can be kept, discarded or saved before navigation', async ({ page, request }) => {
-  await page.goto('/');await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.goto('/');await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await page.getByLabel('本月新投入').fill('12000');
   await page.getByRole('button',{name:'總覽',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'還有尚未儲存的修改'});
@@ -133,7 +142,7 @@ test('unsaved changes can be kept, discarded or saved before navigation', async 
   await expect(page.getByRole('heading',{name:'收支總覽',exact:true})).toBeVisible();
   let data=await (await request.get('/api/demo')).json();
   expect(data.investments[data.month]).toEqual({amount:12000,dividends:0});
-  await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await page.getByLabel('本月新投入').fill('13000');
   await page.getByLabel('查看月份',{exact:true}).fill('2026-01');
   await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'放棄修改'}).click();
@@ -142,10 +151,13 @@ test('unsaved changes can be kept, discarded or saved before navigation', async 
   await expect(page.getByLabel('本月新投入')).toHaveValue('12000');
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   await page.getByLabel('實際入帳日（未入帳留白）').fill(today);
-  await page.getByRole('button',{name:'儲存薪資',exact:true}).click();
+  await page.getByRole('button',{name:'儲存收入與投資'}).click();
+  await expect(page.locator('.floating-notice')).toContainText('已儲存');
+  await page.getByRole('button',{name:'總覽',exact:true}).click();
   await expect(page.getByRole('region',{name:'每月收支'})).toContainText('實際收入');
   await page.getByRole('button',{name:'帳單',exact:true}).click();
-  await page.getByRole('button',{name:'手動新增帳單',exact:true}).click();
+  await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:'新增帳單',exact:true}).click();
   await page.getByLabel('帳單名稱').fill('尚未完成');
   await page.getByRole('button',{name:'總覽',exact:true}).click();
   await dialog.getByRole('button',{name:'儲存並離開'}).click();
@@ -155,7 +167,7 @@ test('unsaved changes can be kept, discarded or saved before navigation', async 
 });
 
 test('failed save keeps edits; save-and-leave saves both income forms', async ({ page, request }) => {
-  await page.goto('/');await page.getByRole('button',{name:'薪資與投資',exact:true}).click();
+  await page.goto('/');await page.getByRole('button',{name:'收入與投資',exact:true}).click();
   await page.getByLabel('本月新投入').fill('2000');
   await page.getByLabel('薪資金額',{exact:true}).fill('70000');
   await page.route('**/api/demo',async route=>{
@@ -175,4 +187,35 @@ test('failed save keeps edits; save-and-leave saves both income forms', async ({
   const data=await (await request.get('/api/demo')).json();
   expect(data.investments[data.month].amount).toBe(2000);
   expect(data.totals[data.month].salary).toBe(70000);
+});
+
+test('large photos are shrunk in the browser before upload', async ({ page, request }) => {
+  await page.goto('/');await page.getByRole('button',{name:'帳單',exact:true}).click();
+  await page.getByRole('button',{name:'匯入帳單'}).click();
+  // A 4000x3000 noisy PNG, far above the hosted upload limit.
+  const png=Buffer.from(await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=4000;canvas.height=3000;
+    const context=canvas.getContext('2d')!;const image=context.createImageData(4000,3000);
+    for(let index=0;index<image.data.length;index+=4){image.data[index]=Math.random()*255;image.data[index+1]=Math.random()*255;image.data[index+2]=Math.random()*255;image.data[index+3]=255;}
+    context.putImageData(image,0,0);return canvas.toDataURL('image/png').split(',')[1];}),'base64');
+  expect(png.length).toBeGreaterThan(8*1024*1024);
+  await page.getByLabel('照片（選填）').setInputFiles({name:'scan.png',mimeType:'image/png',buffer:png});
+  await expect(page.getByText(/上傳前會自動縮小/)).toBeVisible();
+  await page.getByRole('button',{name:'開始核對紙本'}).click();
+  const link=page.getByRole('link',{name:'開啟／下載原始照片'});await expect(link).toBeVisible();
+  const stored=await request.get((await link.getAttribute('href'))!);
+  expect(stored.headers()['content-type']).toBe('image/jpeg');
+  const bytes=await stored.body();expect(bytes.length).toBeLessThan(4*1024*1024);
+  const size=await page.evaluate(async src=>{const image=new Image();image.src=src;await image.decode();return [image.naturalWidth,image.naturalHeight];},(await link.getAttribute('href'))!);
+  expect(size).toEqual([2000,1500]);
+});
+
+test('collapsing fixed-bill settings asks before dropping unsaved edits', async ({ page }) => {
+  await page.goto('/');await page.getByRole('button',{name:'帳單',exact:true}).click();
+  const toggle=page.getByRole('button',{name:/^固定帳單設定/});
+  await toggle.click();
+  await page.locator('#fixed-settings').getByLabel('名稱',{exact:true}).fill('網路費');
+  await toggle.click();
+  const dialog=page.getByRole('dialog',{name:'還有尚未儲存的修改'});
+  await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'繼續編輯'}).click();
+  await expect(page.locator('#fixed-settings').getByLabel('名稱',{exact:true})).toHaveValue('網路費');
 });

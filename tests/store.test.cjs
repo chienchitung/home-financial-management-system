@@ -54,3 +54,8 @@ test('partial manual drafts stay outside expenses, explicit zero survives, delet
   assert.equal(summarize(read(),'2026-11').billsComplete,true);
   assert.throws(()=>mutate({action:'delete_draft',id:draft.id}));
 });
+test('salary and investment save together or not at all',()=>{write();
+assert.throws(()=>mutate({action:'month_income',month:'2026-11',salary:70000,receivedOn:'',amount:-1,dividends:0}),/金額請填非負整數/);
+assert.equal(summarize(read(),'2026-11').salary,68000);
+mutate({action:'month_income',month:'2026-11',salary:70000,receivedOn:'2026-11-01',amount:5000,dividends:null});
+const report=summarize(read(),'2026-11');assert.equal(report.salary,70000);assert.equal(report.salaryReceived,true);assert.equal(report.investment,5000);assert.equal(report.dividends,null);});
