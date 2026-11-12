@@ -8,7 +8,7 @@
     "start": "next start --hostname 127.0.0.1",
     "test": "node --test tests/*.test.cjs",
     "test:e2e": "playwright test",
-    "db:import": "node scripts/db-import.mjs"
+    "db:import": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/db-import.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

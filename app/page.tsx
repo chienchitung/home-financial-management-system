@@ -154,7 +154,7 @@ function LedgerApp() {
             <div className="toolbar">
               <button className="primary" disabled={busy} onClick={addManualBill}><Icon name="plus"/>新增帳單</button>
               <button disabled={busy} aria-expanded={importOpen} onClick={()=>setImportOpen(!importOpen)}><Icon name="camera"/>匯入帳單</button>
-              <button disabled={busy} aria-expanded={settingsOpen} onClick={()=>settingsOpen?setSettingsOpen(false):navigate('帳單','fixed-settings')}>固定帳單設定（{scheduleCount}）</button>
+              <button disabled={busy} aria-expanded={settingsOpen} onClick={()=>settingsOpen?guard(()=>setSettingsOpen(false),document.querySelector<HTMLFormElement>('#fixed-settings form')):navigate('帳單','fixed-settings')}>固定帳單設定（{scheduleCount}）</button>
             </div></div>
           {importOpen&&<div className="import-grid">
             <div className="import-box"><h3>紙本照片（示範）</h3><small>目前帶入範例欄位，照片會保存供回看。</small>

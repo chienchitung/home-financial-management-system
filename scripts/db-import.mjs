@@ -1,5 +1,5 @@
 // Copies the local demo ledger (ledger.json + attachments) into Postgres/Neon.
-// Usage: DATABASE_URL=... npm run db:import [-- --force]
+// Usage: npm run db:import [-- --force]  (reads DATABASE_URL / LEDGER_ID from the environment, .env or .env.local)
 // Without --force it refuses to overwrite a ledger that already has changes.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -7,7 +7,7 @@ import pg from 'pg';
 import { SCHEMA_SQL } from '../lib/db-schema.ts';
 
 const url = process.env.DATABASE_URL;
-if (!url) { console.error('請先設定 DATABASE_URL。'); process.exit(1); }
+if (!url) { console.error('請先在 .env.local 或環境變數設定 DATABASE_URL。'); process.exit(1); }
 const force = process.argv.includes('--force');
 const directory = process.env.DEMO_DATA_DIR || join(process.cwd(), '.demo-data');
 const ledgerId = process.env.LEDGER_ID?.trim() || 'household';

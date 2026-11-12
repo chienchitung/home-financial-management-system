@@ -208,3 +208,14 @@ test('large photos are shrunk in the browser before upload', async ({ page, requ
   const size=await page.evaluate(async src=>{const image=new Image();image.src=src;await image.decode();return [image.naturalWidth,image.naturalHeight];},(await link.getAttribute('href'))!);
   expect(size).toEqual([2000,1500]);
 });
+
+test('collapsing fixed-bill settings asks before dropping unsaved edits', async ({ page }) => {
+  await page.goto('/');await page.getByRole('button',{name:'帳單',exact:true}).click();
+  const toggle=page.getByRole('button',{name:/^固定帳單設定/});
+  await toggle.click();
+  await page.locator('#fixed-settings').getByLabel('名稱',{exact:true}).fill('網路費');
+  await toggle.click();
+  const dialog=page.getByRole('dialog',{name:'還有尚未儲存的修改'});
+  await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'繼續編輯'}).click();
+  await expect(page.locator('#fixed-settings').getByLabel('名稱',{exact:true})).toHaveValue('網路費');
+});
